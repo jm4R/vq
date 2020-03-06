@@ -14,6 +14,8 @@ set(MODEL_FILES
     model/OutputGenerator.hpp
     model/ProjectDescription.hpp
     model/TokenizedString.hpp
+    model/VcxprojParser.cpp
+    model/VcxprojParser.hpp
 )
 
 set(QRC_FILES ../res/res.qrc)
@@ -32,6 +34,7 @@ add_library(vq-lib STATIC
 
 target_link_libraries(vq-lib
     PUBLIC Qt5::Widgets
+    PUBLIC Qt5::XmlPatterns
 )
 
 target_compile_features(vq-lib PRIVATE cxx_std_17)

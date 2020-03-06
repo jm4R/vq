@@ -4,6 +4,8 @@
 
 #include <QtWidgets/QApplication>
 
+#include <model/VcxprojParser.hpp> //TODO: remove
+
 class Gui
 {
 public:

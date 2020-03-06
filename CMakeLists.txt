@@ -24,6 +24,7 @@ find_package(Qt5 REQUIRED
     COMPONENTS 
         Widgets
         Gui
+        Xml
 )
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 

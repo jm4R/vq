@@ -6,6 +6,7 @@ Gui::Gui(int argc, char* argv[]) : application_{argc, argv}, window_{} {}
 
 int Gui::run()
 {
+    VcxprojParser::parse();
     window_.show();
     auto style = QStyleFactory::create("Fusion");
     if (style)
