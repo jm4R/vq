@@ -1,21 +1,65 @@
 #include "VcxprojParser.hpp"
 
-#include <QXmlQuery>
-#include <QXmlResultItems>
+#include <QDomDocument>
 
 #include <QDebug>
+
+namespace {
+
+template <typename It>
+QStringList valuesByPath(const QDomElement& e, const It& pathBegin,
+                         const It& pathEnd, const QString& attribute = {})
+{
+    if (pathBegin == pathEnd)
+    {
+        if (attribute.isEmpty())
+            return {e.text()};
+        else if (e.hasAttribute(attribute))
+            return {e.attribute(attribute)};
+        else
+            return {};
+    }
+
+    const auto& list = e.childNodes();
+    const auto& count = list.count();
+
+    auto values = QStringList{};
+    for (int i = 0; i < count; ++i)
+    {
+        const auto& node = list.at(i);
+        qDebug() << *pathBegin << " " << node.toElement().tagName();
+        if (node.isElement() && node.toElement().tagName() == *pathBegin)
+            values << valuesByPath(node.toElement(), pathBegin + 1, pathEnd,
+                                   attribute);
+    }
+
+    return values;
+}
+
+TokenizedString extract(const QString& xml, const QStringList path,
+                        const QString& attribute = {})
+{
+    const auto& doc = [&] {
+        auto r = QDomDocument{};
+        r.setContent(xml, false);
+        return r;
+    }();
+
+    if (path.empty() || doc.documentElement().tagName() != path[0])
+        return {};
+
+    auto values = valuesByPath(doc.documentElement(), path.cbegin() + 1,
+                               path.cend(), attribute);
+
+    return {std::move(values)};
+}
+
+} // namespace
 
 VcxprojParser::VcxprojParser(QObject* parent) : QObject{parent} {}
 
 ProjectDescription VcxprojParser::parse()
 {
-    constexpr static auto XPATH_SRC =
-        "/Project/ItemGroup/ClCompile/@Include/data(.)";
-    constexpr static auto XPATH_INC =
-        "/Project/ItemDefinitionGroup/AdditionalIncludeDirectories/data(.)";
-    constexpr static auto XPATH_DEF =
-        "/Project/ItemDefinitionGroup/PreprocessorDefinitions/data(.)";
-
     auto testXml = R"(
                    <Project>
                     <ItemGroup>
@@ -30,35 +74,13 @@ ProjectDescription VcxprojParser::parse()
                     </ItemDefinitionGroup>
                    </Project>)";
 
-    ProjectDescription result;
-    result.sourcePaths = extract(testXml, XPATH_SRC);
-    result.includePaths = extract(testXml, XPATH_INC);
-    result.defines = extract(testXml, XPATH_DEF);
+    auto result = ProjectDescription{};
+    result.sourcePaths =
+        extract(testXml, {"Project", "ItemGroup", "ClCompile"}, "Include");
+    result.includePaths = extract(testXml, {"Project", "ItemDefinitionGroup",
+                                            "AdditionalIncludeDirectories"});
+    result.defines = extract(
+        testXml, {"Project", "ItemDefinitionGroup", "PreprocessorDefinitions"});
 
     return result;
-}
-
-TokenizedString VcxprojParser::extract(const QString& xml, const QString& xpath)
-{
-    QXmlQuery query;
-    query.setFocus(xml);
-    query.setQuery(xpath);
-
-    if (query.isValid())
-    {
-        throw __LINE__;
-    }
-
-    QString str;
-    QXmlResultItems result;
-    for (auto item = result.next(); !item.isNull(); item = result.next())
-    {
-        str += item.toAtomicValue().toString();
-    }
-    if (result.hasError())
-    {
-        throw __LINE__;
-    }
-
-    return {str};
 }

@@ -34,7 +34,7 @@ add_library(vq-lib STATIC
 
 target_link_libraries(vq-lib
     PUBLIC Qt5::Widgets
-    PUBLIC Qt5::XmlPatterns
+    PUBLIC Qt5::Xml
 )
 
 target_compile_features(vq-lib PRIVATE cxx_std_17)
