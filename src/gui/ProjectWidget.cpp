@@ -1,11 +1,10 @@
 #include "gui/ProjectWidget.hpp"
 
 #include "model/OutputGenerator.hpp"
+#include "model/VcxprojParser.hpp"
 
 #include <QCheckBox>
 #include <QFileDialog>
-//#include <QGroupBox>
-//#include <QHeaderView>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPlainTextEdit>
@@ -13,6 +12,7 @@
 #include <QSplitter>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+#include <QFile>
 
 #include <cassert>
 
@@ -42,12 +42,14 @@ ProjectWidget::ProjectWidget(QWidget* parent) : QWidget{parent}
         {
             auto loadButton = new QPushButton{"Load vcxproj", this};
             optionsWidget->layout()->addWidget(loadButton);
-            connect(loadButton, &QPushButton::clicked, [this](bool) { onLoadInvoked(); });
+            connect(loadButton, &QPushButton::clicked,
+                    [this](bool) { onLoadInvoked(); });
         }
         {
             auto generateButton = new QPushButton{"Generate", this};
             optionsWidget->layout()->addWidget(generateButton);
-            connect(generateButton, &QPushButton::clicked, [this](bool) { onGenerateInvoked(); });
+            connect(generateButton, &QPushButton::clicked,
+                    [this](bool) { onGenerateInvoked(); });
         }
         layout()->addWidget(optionsWidget);
     }
@@ -58,16 +60,22 @@ ProjectWidget::ProjectWidget(QWidget* parent) : QWidget{parent}
             _listWidget->setContextMenuPolicy(Qt::CustomContextMenu);
             _listWidget->setIndentation(0);
 
-            connect(_listWidget, &QTreeWidget::itemSelectionChanged, [this]() { onSelected(); });
-            connect(_listWidget, &QTreeWidget::customContextMenuRequested, [this](auto p) { onItemContextMenuRequested(p); });
+            connect(_listWidget, &QTreeWidget::itemSelectionChanged,
+                    [this]() { onSelected(); });
+            connect(_listWidget, &QTreeWidget::customContextMenuRequested,
+                    [this](auto p) { onItemContextMenuRequested(p); });
 
             auto addItem = [&](const char* name, auto* data) {
-                ItemType t = std::is_same_v<decltype(*data), QString> ? kPathType : kListType;
+                ItemType t = std::is_same_v<decltype(data), QString*>
+                                 ? kPathType
+                                 : kListType;
                 auto i = new QTreeWidgetItem{_listWidget, {name}, t};
-                i->setData(kValueColumn, Qt::UserRole, QVariant::fromValue(data));
+                i->setData(kValueColumn, Qt::UserRole,
+                           QVariant::fromValue(data));
             };
 
-            _listWidget->setHeaderItem(new QTreeWidgetItem{{"Property", "Value(s)"}});
+            _listWidget->setHeaderItem(
+                new QTreeWidgetItem{{"Property", "Value(s)"}});
             addItem("Source project (vcxproj)", &_project.vcxprojPath);
             addItem("Preprocessor defines", &_project.defines);
             addItem("Include directories", &_project.includePaths);
@@ -93,31 +101,65 @@ ProjectWidget::ProjectWidget(QWidget* parent) : QWidget{parent}
     {
         auto _clearAction = new QAction{"Clear", _listWidget};
         _listWidget->addAction(_clearAction);
-        connect(_clearAction, &QAction::triggered, [this] { onClearRequested(); });
+        connect(_clearAction, &QAction::triggered,
+                [this] { onClearRequested(); });
         _clearAction->setShortcut(QKeySequence::Delete);
         _clearAction->setShortcutContext(Qt::WidgetWithChildrenShortcut);
     }
 }
 
-void ProjectWidget::onSelected() {}
+void ProjectWidget::onSelected()
+{
+    _listEdit->clear();
+
+    auto items = _listWidget->selectedItems();
+    if (items.count() != 1)
+        return;
+
+    auto* item = items[0];
+
+    if (item->type() == kListType)
+    {
+        auto str =
+            item->data(kValueColumn, Qt::UserRole).value<TokenizedString*>();
+        assert(str);
+        for (const auto& val : *str)
+        {
+            _listEdit->appendPlainText(val);
+        }
+    }
+    else if (item->type() == kPathType)
+    {
+        auto str = item->data(kValueColumn, Qt::UserRole).value<QString*>();
+        assert(str);
+        _listEdit->appendPlainText(*str);
+    }
+}
 
 void ProjectWidget::onLoadInvoked()
 {
-    auto path = QFileDialog::getOpenFileName(this, {}, {}, "Visual Studio project (*.vcxproj)");
+    auto path = QFileDialog::getOpenFileName(
+        this, {}, {}, "Visual Studio project (*.vcxproj)");
     if (path.isNull())
         return;
+
+    auto&& file = QFile{path};
+    _project = parseVcxproj(file);
+    reload();
 }
 
 void ProjectWidget::onGenerateInvoked() {}
 
 void ProjectWidget::onGenerationFinished()
 {
-    QMessageBox::information(this, "Success", "Qt Creator project successfully created");
+    QMessageBox::information(this, "Success",
+                             "Qt Creator project successfully created");
 }
 
 void ProjectWidget::onGenerationFailure(const QString& what)
 {
-    QMessageBox::critical(this, "Failure", "Failed to generate project: \n" + what);
+    QMessageBox::critical(this, "Failure",
+                          "Failed to generate project: \n" + what);
 }
 
 void ProjectWidget::onItemContextMenuRequested(const QPoint& point)
@@ -150,7 +192,8 @@ void ProjectWidget::setValue(QTreeWidgetItem* item, const QString& val)
     item->setText(kValueColumn, val);
     if (item->type() == kListType)
     {
-        auto str = item->data(kValueColumn, Qt::UserRole).value<TokenizedString*>();
+        auto str =
+            item->data(kValueColumn, Qt::UserRole).value<TokenizedString*>();
         assert(str);
         *str = TokenizedString{val};
     }
@@ -159,5 +202,34 @@ void ProjectWidget::setValue(QTreeWidgetItem* item, const QString& val)
         auto str = item->data(kValueColumn, Qt::UserRole).value<QString*>();
         assert(str);
         *str = val;
+    }
+}
+
+void ProjectWidget::reload(QTreeWidgetItem& item)
+{
+    if (item.type() == kListType)
+    {
+        auto str =
+            item.data(kValueColumn, Qt::UserRole).value<TokenizedString*>();
+        auto txt = item.text(0);
+        assert(str);
+        item.setText(kValueColumn, *str);
+    }
+    else if (item.type() == kPathType)
+    {
+        auto str = item.data(kValueColumn, Qt::UserRole).value<QString*>();
+        assert(str);
+        item.setText(kValueColumn, *str);
+    }
+}
+
+void ProjectWidget::reload()
+{
+    QTreeWidgetItemIterator it(_listWidget);
+    while (*it)
+    {
+        auto* item = *it;
+        reload(*item);
+        ++it;
     }
 }

@@ -1,17 +1,23 @@
 #include <QStringList>
 
+#include <algorithm>
+
 class TokenizedString : public QStringList
 {
     constexpr static auto SEPARATOR = ';';
 
 public:
     TokenizedString() = default;
-    TokenizedString(const QString& str) : QStringList{str.split(SEPARATOR, QString::SkipEmptyParts)} {}
-
-    using QStringList::QStringList;
-
-    operator QString() const
+    TokenizedString(const QString& str)
+        : QStringList{str.split(SEPARATOR, QString::SkipEmptyParts)}
     {
-        return QStringList::join(SEPARATOR);
+    }
+
+    operator QString() const { return QStringList::join(SEPARATOR); }
+
+    void normalize()
+    {
+        sort(Qt::CaseInsensitive);
+        erase(std::unique(begin(), end()), end());
     }
 };

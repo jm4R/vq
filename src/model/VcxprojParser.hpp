@@ -2,15 +2,6 @@
 
 #include "model/ProjectDescription.hpp"
 
-#include <QObject>
+class QIODevice;
 
-class QDomDocument;
-
-class VcxprojParser : public QObject
-{
-    Q_OBJECT
-public:
-    explicit VcxprojParser(QObject *parent = nullptr);
-
-    static ProjectDescription parse();
-};
+ProjectDescription parseVcxproj(QIODevice& device);

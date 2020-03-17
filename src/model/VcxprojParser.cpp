@@ -1,14 +1,15 @@
 #include "VcxprojParser.hpp"
 
 #include <QDomDocument>
+#include <QIODevice>
 
 #include <QDebug>
 
 namespace {
 
 template <typename It>
-QStringList valuesByPath(const QDomElement& e, const It& pathBegin,
-                         const It& pathEnd, const QString& attribute = {})
+TokenizedString valuesByPath(const QDomElement& e, const It& pathBegin,
+                             const It& pathEnd, const QString& attribute = {})
 {
     if (pathBegin == pathEnd)
     {
@@ -23,25 +24,30 @@ QStringList valuesByPath(const QDomElement& e, const It& pathBegin,
     const auto& list = e.childNodes();
     const auto& count = list.count();
 
-    auto values = QStringList{};
+    auto values = TokenizedString{};
     for (int i = 0; i < count; ++i)
     {
         const auto& node = list.at(i);
-        qDebug() << *pathBegin << " " << node.toElement().tagName();
         if (node.isElement() && node.toElement().tagName() == *pathBegin)
+        {
             values << valuesByPath(node.toElement(), pathBegin + 1, pathEnd,
                                    attribute);
+            qDebug() << "   " << *pathBegin << " "
+                     << node.toElement().tagName();
+        }
     }
 
     return values;
 }
 
-TokenizedString extract(const QString& xml, const QStringList path,
+TokenizedString extract(QIODevice& device, const QStringList path,
                         const QString& attribute = {})
 {
+    device.reset();
+
     const auto& doc = [&] {
         auto r = QDomDocument{};
-        r.setContent(xml, false);
+        r.setContent(&device, false);
         return r;
     }();
 
@@ -51,36 +57,28 @@ TokenizedString extract(const QString& xml, const QStringList path,
     auto values = valuesByPath(doc.documentElement(), path.cbegin() + 1,
                                path.cend(), attribute);
 
-    return {std::move(values)};
+    values.normalize();
+    return values;
 }
 
 } // namespace
 
-VcxprojParser::VcxprojParser(QObject* parent) : QObject{parent} {}
-
-ProjectDescription VcxprojParser::parse()
+ProjectDescription parseVcxproj(QIODevice& device)
 {
-    auto testXml = R"(
-                   <Project>
-                    <ItemGroup>
-                     <ClCompile Include="a.cpp"/>
-                     <ClCompile Include="a.hpp"/>
-                     <ClCompile Include="b.hpp"/>
-                    </ItemGroup>
-                    <ItemDefinitionGroup>
-                     <AdditionalIncludeDirectories>some_incl_dir</AdditionalIncludeDirectories>
-                     <AdditionalIncludeDirectories>another</AdditionalIncludeDirectories>
-                     <PreprocessorDefinitions>NDEBUG</PreprocessorDefinitions>
-                    </ItemDefinitionGroup>
-                   </Project>)";
-
     auto result = ProjectDescription{};
+
     result.sourcePaths =
-        extract(testXml, {"Project", "ItemGroup", "ClCompile"}, "Include");
-    result.includePaths = extract(testXml, {"Project", "ItemDefinitionGroup",
-                                            "AdditionalIncludeDirectories"});
-    result.defines = extract(
-        testXml, {"Project", "ItemDefinitionGroup", "PreprocessorDefinitions"});
+        extract(device, {"Project", "ItemGroup", "ClCompile"}, "Include");
+
+    result.headerPaths =
+        extract(device, {"Project", "ItemGroup", "ClInclude"}, "Include");
+
+    result.includePaths =
+        extract(device, {"Project", "ItemDefinitionGroup", "ClCompile",
+                         "AdditionalIncludeDirectories"});
+
+    result.defines = extract(device, {"Project", "ItemDefinitionGroup",
+                                      "ClCompile", "PreprocessorDefinitions"});
 
     return result;
 }

@@ -29,6 +29,8 @@ private:
     void onClearRequested();
 
     void setValue(QTreeWidgetItem* item, const QString& val);
+    void reload(QTreeWidgetItem &item);
+    void reload();
 
 signals:
     void generateRequested(const ProjectDescription& desc);
