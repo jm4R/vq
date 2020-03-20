@@ -1,8 +1,8 @@
 #pragma once
 
-#include "model/ProjectDescription.hpp"
-
 #include <QObject>
+
+struct ProjectDescription;
 
 class QDir;
 
@@ -18,5 +18,5 @@ signals:
     void finished();
 
 public slots:
-    void generate();
+    void generate(const ProjectDescription& p);
 };

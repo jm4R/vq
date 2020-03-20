@@ -18,4 +18,11 @@ struct ProjectDescription
     QString slnPath;
     QString postBuildCommand;
     QString executablePath;
+
+    //internal:
+    QString compilerVersionStr;
+    int compilerVersionMajor{};
+    int compilerVersionMinor{};
+    TokenizedString propsFiles;
+    TokenizedString configurations;
 };

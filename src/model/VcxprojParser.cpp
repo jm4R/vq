@@ -61,6 +61,25 @@ TokenizedString extract(QIODevice& device, const QStringList path,
     return values;
 }
 
+void postProcess(ProjectDescription& d)
+{
+    if (!d.compilerVersionStr.isEmpty())
+    {
+        auto list = d.compilerVersionStr.split('.');
+        d.compilerVersionMajor = list[0].toInt();
+        if (list.size() > 1)
+            d.compilerVersionMinor = list[1].toInt();
+    }
+
+    d.flags.append({"-GX", "-fms-compatibility"});
+
+    if (d.compilerVersionMajor > 0)
+    {
+        d.flags.append("-fms-compatibility-version=" +
+                       QString::number(d.compilerVersionMajor));
+    }
+}
+
 } // namespace
 
 ProjectDescription parseVcxproj(QIODevice& device)
@@ -79,6 +98,13 @@ ProjectDescription parseVcxproj(QIODevice& device)
 
     result.defines = extract(device, {"Project", "ItemDefinitionGroup",
                                       "ClCompile", "PreprocessorDefinitions"});
+
+    result.compilerVersionStr = extract(device, {"Project"}, "ToolsVersion");
+
+    result.propsFiles = extract(device, {"Project", "ImportGroup", "Import"}, "Project");
+    result.configurations = extract(device, {"Project", "ItemGroup", "ProjectConfiguration"}, "Include");
+
+    postProcess(result);
 
     return result;
 }

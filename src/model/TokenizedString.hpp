@@ -20,4 +20,12 @@ public:
         sort(Qt::CaseInsensitive);
         erase(std::unique(begin(), end()), end());
     }
+
+    QString buildString(const char* prefix, const char* postfix) const
+    {
+        auto res = QString{prefix};
+        res += QStringList::join(postfix + QString{prefix});
+        res += postfix;
+        return res;
+    }
 };

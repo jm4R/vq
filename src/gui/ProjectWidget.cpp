@@ -145,10 +145,19 @@ void ProjectWidget::onLoadInvoked()
 
     auto&& file = QFile{path};
     _project = parseVcxproj(file);
+    _project.vcxprojPath = path;
     reload();
 }
 
-void ProjectWidget::onGenerateInvoked() {}
+void ProjectWidget::onGenerateInvoked()
+{
+    auto&& generator = OutputGenerator{this};
+    connect(&generator, &OutputGenerator::finished,
+            [this] { onGenerationFinished(); });
+    connect(&generator, &OutputGenerator::failure,
+            [this](auto what) { onGenerationFailure(what); });
+    generator.generate(_project);
+}
 
 void ProjectWidget::onGenerationFinished()
 {
