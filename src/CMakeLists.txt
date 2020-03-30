@@ -16,6 +16,7 @@ set(MODEL_FILES
     model/TokenizedString.hpp
     model/VcxprojParser.cpp
     model/VcxprojParser.hpp
+    model/XmlValuesExtractor.hpp
 )
 
 set(QRC_FILES ../res/res.qrc)

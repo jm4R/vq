@@ -1,7 +1,6 @@
 #pragma once
 
-#include "model/ProjectDescription.hpp"
-
 class QIODevice;
+class ProjectDescription;
 
 ProjectDescription parseVcxproj(QIODevice& device);

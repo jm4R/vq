@@ -8,8 +8,8 @@ OutputGenerator::OutputGenerator(QObject* parent) : QObject{parent} {}
 
 OutputGenerator::~OutputGenerator() {}
 
-void OutputGenerator::generate(const ProjectDescription& d)
-try
+void OutputGenerator::generate(const ProjectDescription& d,
+                               const ConfigurationDescription& cfg) try
 {
     const auto projectName = QFileInfo{d.vcxprojPath}.baseName();
     const auto creatorDir = [&] {
@@ -42,10 +42,10 @@ try
 
     writeToFile(creatorFile, "[General]\n");
     writeToFile(cxxflagsFile, d.flags.join('\n'));
-    writeToFile(definesFile, d.defines.buildString("#define ", "\n"));
+    writeToFile(definesFile, cfg.defines.buildString("#define ", "\n"));
     writeToFile(srcListFile,
-                d.sourcePaths.join('\n') + "\n" + d.headerPaths.join('\n'));
-    writeToFile(includesFile, d.includePaths.join('\n'));
+                cfg.sourcePaths.join('\n') + "\n" + cfg.headerPaths.join('\n'));
+    writeToFile(includesFile, cfg.includePaths.join('\n'));
 
     emit finished();
 }

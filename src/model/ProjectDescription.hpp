@@ -2,16 +2,26 @@
 
 #include "model/TokenizedString.hpp"
 
+#include <QHash>
 #include <QString>
+#include <QVector>
+
+struct ConfigurationDescription
+{
+    QString name;
+
+    TokenizedString defines;
+    TokenizedString includePaths;
+    TokenizedString headerPaths;
+    TokenizedString sourcePaths;
+    TokenizedString propsFiles;
+    QHash<QString, QString> properties;
+};
 
 struct ProjectDescription
 {
     QString vcxprojPath;
     //QString destPath;
-    TokenizedString defines;
-    TokenizedString includePaths;
-    TokenizedString headerPaths;
-    TokenizedString sourcePaths;
     TokenizedString flags;
 
     QString msbuildPath;
@@ -23,6 +33,7 @@ struct ProjectDescription
     QString compilerVersionStr;
     int compilerVersionMajor{};
     int compilerVersionMinor{};
-    TokenizedString propsFiles;
-    TokenizedString configurations;
+
+    ConfigurationDescription commonConfiguration;
+    QVector<ConfigurationDescription> configurations;
 };

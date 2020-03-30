@@ -77,10 +77,10 @@ ProjectWidget::ProjectWidget(QWidget* parent) : QWidget{parent}
             _listWidget->setHeaderItem(
                 new QTreeWidgetItem{{"Property", "Value(s)"}});
             addItem("Source project (vcxproj)", &_project.vcxprojPath);
-            addItem("Preprocessor defines", &_project.defines);
-            addItem("Include directories", &_project.includePaths);
-            addItem("Header files", &_project.headerPaths);
-            addItem("Source files", &_project.sourcePaths);
+            addItem("Preprocessor defines", &_currentCfg.defines);
+            addItem("Include directories", &_currentCfg.includePaths);
+            addItem("Header files", &_currentCfg.headerPaths);
+            addItem("Source files", &_currentCfg.sourcePaths);
             addItem("Compiler flags (for clang code model)", &_project.flags);
 
             addItem("Solution path (sln)", &_project.slnPath);
@@ -138,8 +138,9 @@ void ProjectWidget::onSelected()
 
 void ProjectWidget::onLoadInvoked()
 {
-    auto path = QFileDialog::getOpenFileName(
-        this, {}, {}, "Visual Studio project (*.vcxproj)");
+    /*auto path = QFileDialog::getOpenFileName(
+        this, {}, {}, "Visual Studio project (*.vcxproj)");*/
+    QString path{"/home/jaskol/test.vcxproj"};
     if (path.isNull())
         return;
 
@@ -156,7 +157,7 @@ void ProjectWidget::onGenerateInvoked()
             [this] { onGenerationFinished(); });
     connect(&generator, &OutputGenerator::failure,
             [this](auto what) { onGenerationFailure(what); });
-    generator.generate(_project);
+    generator.generate(_project, _currentCfg);
 }
 
 void ProjectWidget::onGenerationFinished()

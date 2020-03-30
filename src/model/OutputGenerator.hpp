@@ -3,6 +3,7 @@
 #include <QObject>
 
 struct ProjectDescription;
+struct ConfigurationDescription;
 
 class QDir;
 
@@ -18,5 +19,6 @@ signals:
     void finished();
 
 public slots:
-    void generate(const ProjectDescription& p);
+    void generate(const ProjectDescription& p,
+                  const ConfigurationDescription& cfg);
 };

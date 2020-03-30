@@ -1,65 +1,9 @@
 #include "VcxprojParser.hpp"
 
-#include <QDomDocument>
-#include <QIODevice>
-
-#include <QDebug>
+#include "model/ProjectDescription.hpp"
+#include "model/XmlValuesExtractor.hpp"
 
 namespace {
-
-template <typename It>
-TokenizedString valuesByPath(const QDomElement& e, const It& pathBegin,
-                             const It& pathEnd, const QString& attribute = {})
-{
-    if (pathBegin == pathEnd)
-    {
-        if (attribute.isEmpty())
-            return {e.text()};
-        else if (e.hasAttribute(attribute))
-            return {e.attribute(attribute)};
-        else
-            return {};
-    }
-
-    const auto& list = e.childNodes();
-    const auto& count = list.count();
-
-    auto values = TokenizedString{};
-    for (int i = 0; i < count; ++i)
-    {
-        const auto& node = list.at(i);
-        if (node.isElement() && node.toElement().tagName() == *pathBegin)
-        {
-            values << valuesByPath(node.toElement(), pathBegin + 1, pathEnd,
-                                   attribute);
-            qDebug() << "   " << *pathBegin << " "
-                     << node.toElement().tagName();
-        }
-    }
-
-    return values;
-}
-
-TokenizedString extract(QIODevice& device, const QStringList path,
-                        const QString& attribute = {})
-{
-    device.reset();
-
-    const auto& doc = [&] {
-        auto r = QDomDocument{};
-        r.setContent(&device, false);
-        return r;
-    }();
-
-    if (path.empty() || doc.documentElement().tagName() != path[0])
-        return {};
-
-    auto values = valuesByPath(doc.documentElement(), path.cbegin() + 1,
-                               path.cend(), attribute);
-
-    values.normalize();
-    return values;
-}
 
 void postProcess(ProjectDescription& d)
 {
@@ -80,29 +24,74 @@ void postProcess(ProjectDescription& d)
     }
 }
 
+ConfigurationDescription readConfiguration(XmlValuesExtractor& extractor,
+                                           const QString& name)
+{
+    // e.g.
+    // Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"
+    auto pred = [&](const QDomElement& element) {
+        if (!element.hasAttribute("Condition"))
+            return true;
+        auto condition = element.attribute("Condition");
+        if (!condition.startsWith(R"('$(Configuration)|$(Platform)'==')"))
+            return true;
+        if (name.isEmpty())
+            return false;
+        return condition.endsWith("\'" + name + "\'");
+    };
+
+    auto result = ConfigurationDescription{};
+    result.name = name;
+    result.sourcePaths = extractor.extractIf(
+        pred, {"Project", "ItemGroup", "ClCompile"}, "Include");
+
+    result.headerPaths = extractor.extractIf(
+        pred, {"Project", "ItemGroup", "ClInclude"}, "Include");
+
+    result.includePaths = extractor.extractIf(
+        pred, {"Project", "ItemDefinitionGroup", "ClCompile",
+               "AdditionalIncludeDirectories"});
+
+    result.defines =
+        extractor.extractIf(pred, {"Project", "ItemDefinitionGroup",
+                                   "ClCompile", "PreprocessorDefinitions"});
+
+    result.propsFiles = extractor.extractIf(
+        pred, {"Project", "ImportGroup", "Import"}, "Project");
+
+    result.properties =
+        extractor.extractMap(pred, {"Project", "PropertyGroup"});
+
+    auto pred2 = [&](const QDomElement& element) {
+        if (!element.hasAttribute("Include"))
+            return true;
+        return element.attribute("Include") == name;
+    };
+
+    result.properties.unite(extractor.extractMap(
+        pred2, {"Project", "ItemGroup", "ProjectConfiguration"}));
+
+    return result;
+}
+
 } // namespace
 
 ProjectDescription parseVcxproj(QIODevice& device)
 {
     auto result = ProjectDescription{};
+    auto extractor = XmlValuesExtractor{device};
 
-    result.sourcePaths =
-        extract(device, {"Project", "ItemGroup", "ClCompile"}, "Include");
+    auto configurationNames = extractor.extract(
+        {"Project", "ItemGroup", "ProjectConfiguration"}, "Include");
 
-    result.headerPaths =
-        extract(device, {"Project", "ItemGroup", "ClInclude"}, "Include");
+    result.commonConfiguration = readConfiguration(extractor, "");
+    for (const auto& cfgName : configurationNames)
+    {
+        result.configurations.append(readConfiguration(extractor, cfgName));
+    }
 
-    result.includePaths =
-        extract(device, {"Project", "ItemDefinitionGroup", "ClCompile",
-                         "AdditionalIncludeDirectories"});
-
-    result.defines = extract(device, {"Project", "ItemDefinitionGroup",
-                                      "ClCompile", "PreprocessorDefinitions"});
-
-    result.compilerVersionStr = extract(device, {"Project"}, "ToolsVersion");
-
-    result.propsFiles = extract(device, {"Project", "ImportGroup", "Import"}, "Project");
-    result.configurations = extract(device, {"Project", "ItemGroup", "ProjectConfiguration"}, "Include");
+    result.compilerVersionStr =
+        extractor.extractOne({"Project"}, "ToolsVersion");
 
     postProcess(result);
 

@@ -41,4 +41,5 @@ private:
     QTreeWidget* _listWidget{nullptr};
     QAction* _clearAction{nullptr};
     ProjectDescription _project{};
+    ConfigurationDescription _currentCfg{};
 };
