@@ -4,6 +4,8 @@
 #include "model/VcxprojParser.hpp"
 
 #include <QCheckBox>
+#include <QComboBox>
+#include <QFile>
 #include <QFileDialog>
 #include <QMenu>
 #include <QMessageBox>
@@ -12,7 +14,6 @@
 #include <QSplitter>
 #include <QTreeWidget>
 #include <QVBoxLayout>
-#include <QFile>
 
 #include <cassert>
 
@@ -46,6 +47,12 @@ ProjectWidget::ProjectWidget(QWidget* parent) : QWidget{parent}
                     [this](bool) { onLoadInvoked(); });
         }
         {
+            _confCombo = new QComboBox{this};
+            optionsWidget->layout()->addWidget(_confCombo);
+            connect(_confCombo, qOverload<int>(&QComboBox::currentIndexChanged),
+                    [this](int i) { onConfigurationChanged(i); });
+        }
+        {
             auto generateButton = new QPushButton{"Generate", this};
             optionsWidget->layout()->addWidget(generateButton);
             connect(generateButton, &QPushButton::clicked,
@@ -65,29 +72,9 @@ ProjectWidget::ProjectWidget(QWidget* parent) : QWidget{parent}
             connect(_listWidget, &QTreeWidget::customContextMenuRequested,
                     [this](auto p) { onItemContextMenuRequested(p); });
 
-            auto addItem = [&](const char* name, auto* data) {
-                ItemType t = std::is_same_v<decltype(data), QString*>
-                                 ? kPathType
-                                 : kListType;
-                auto i = new QTreeWidgetItem{_listWidget, {name}, t};
-                i->setData(kValueColumn, Qt::UserRole,
-                           QVariant::fromValue(data));
-            };
-
             _listWidget->setHeaderItem(
                 new QTreeWidgetItem{{"Property", "Value(s)"}});
-            addItem("Source project (vcxproj)", &_project.vcxprojPath);
-            addItem("Preprocessor defines", &_currentCfg.defines);
-            addItem("Include directories", &_currentCfg.includePaths);
-            addItem("Header files", &_currentCfg.headerPaths);
-            addItem("Source files", &_currentCfg.sourcePaths);
-            addItem("Compiler flags (for clang code model)", &_project.flags);
-
-            addItem("Solution path (sln)", &_project.slnPath);
-            addItem("MSBUILD path", &_project.msbuildPath);
-            addItem("Post build commands", &_project.postBuildCommand);
-            addItem("Executable to run/debug", &_project.executablePath);
-            _listWidget->resizeColumnToContents(0);
+            populateList();
         }
         {
             _listEdit = new QPlainTextEdit{splitter};
@@ -147,6 +134,10 @@ void ProjectWidget::onLoadInvoked()
     auto&& file = QFile{path};
     _project = parseVcxproj(file);
     _project.vcxprojPath = path;
+    if (_project.configurations.size() > 0)
+    {
+        populateConfigurations();
+    }
     reload();
 }
 
@@ -180,8 +171,8 @@ void ProjectWidget::onItemContextMenuRequested(const QPoint& point)
 
     auto menu = new QMenu{this};
     menu->setAttribute(Qt::WA_DeleteOnClose, true);
-    menu->addAction(
-        "Clear", [this] { onClearRequested(); }, QKeySequence::Delete);
+    menu->addAction("Clear", [this] { onClearRequested(); },
+                    QKeySequence::Delete);
     menu->popup(_listWidget->viewport()->mapToGlobal(point));
 }
 
@@ -192,6 +183,51 @@ void ProjectWidget::onClearRequested()
     {
         setValue(item, "");
     }
+}
+
+void ProjectWidget::onConfigurationChanged(int index)
+{
+    constexpr static auto NONE_INDEX = -1;
+    assert(_project.configurations.size() > index);
+    if (index == NONE_INDEX)
+        return; // TODO
+    _currentCfg = _project.configurations[index];
+    populateList();
+}
+
+void ProjectWidget::populateConfigurations()
+{
+    _confCombo->clear();
+    for(const auto& c :_project.configurations)
+    {
+        _confCombo->addItem(c.name);
+    }
+}
+
+void ProjectWidget::populateList()
+{
+    _listWidget->clear();
+    auto addItem = [&](const char* name, auto* data) {
+        ItemType t =
+            std::is_same_v<decltype(data), QString*> ? kPathType : kListType;
+        auto i = new QTreeWidgetItem{_listWidget, {name}, t};
+        i->setData(kValueColumn, Qt::UserRole, QVariant::fromValue(data));
+    };
+
+    addItem("Source project (vcxproj)", &_project.vcxprojPath);
+    addItem("Preprocessor defines", &_currentCfg.defines);
+    addItem("Include directories", &_currentCfg.includePaths);
+    addItem("Header files", &_currentCfg.headerPaths);
+    addItem("Source files", &_currentCfg.sourcePaths);
+    addItem("Compiler flags (for clang code model)", &_project.flags);
+
+    addItem("Solution path (sln)", &_project.slnPath);
+    addItem("MSBUILD path", &_project.msbuildPath);
+    addItem("Post build commands", &_project.postBuildCommand);
+    addItem("Executable to run/debug", &_project.executablePath);
+
+    reload();
+    _listWidget->resizeColumnToContents(0);
 }
 
 void ProjectWidget::setValue(QTreeWidgetItem* item, const QString& val)

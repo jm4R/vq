@@ -60,7 +60,7 @@ ConfigurationDescription readConfiguration(XmlValuesExtractor& extractor,
         pred, {"Project", "ImportGroup", "Import"}, "Project");
 
     result.properties =
-        extractor.extractMap(pred, {"Project", "PropertyGroup"});
+        extractor.extractMapIf(pred, {"Project", "PropertyGroup"});
 
     auto pred2 = [&](const QDomElement& element) {
         if (!element.hasAttribute("Include"))
@@ -68,7 +68,7 @@ ConfigurationDescription readConfiguration(XmlValuesExtractor& extractor,
         return element.attribute("Include") == name;
     };
 
-    result.properties.unite(extractor.extractMap(
+    result.properties.unite(extractor.extractMapIf(
         pred2, {"Project", "ItemGroup", "ProjectConfiguration"}));
 
     return result;

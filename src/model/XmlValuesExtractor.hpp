@@ -46,9 +46,17 @@ public:
     }
 
     template <typename Condition>
-    QHash<QString, QString> extractMap(Condition condition,
-                                       const QStringList path,
+    QHash<QString, QString> extractMap(const QStringList path,
                                        const QString& attribute = {})
+    {
+        auto emptyCondition = [](const QDomElement&) { return true; };
+        return extractMapIf(emptyCondition, path, attribute);
+    }
+
+    template <typename Condition>
+    QHash<QString, QString> extractMapIf(Condition condition,
+                                         const QStringList path,
+                                         const QString& attribute = {})
     {
         _device.reset();
 

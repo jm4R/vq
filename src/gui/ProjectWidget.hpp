@@ -4,10 +4,11 @@
 
 #include <QWidget>
 
-class QPlainTextEdit;
 class OutputGenerator;
 class QAction;
 class QCheckBox;
+class QComboBox;
+class QPlainTextEdit;
 class QPoint;
 class QTreeWidget;
 class QTreeWidgetItem;
@@ -27,7 +28,10 @@ private:
     void onGenerationFailure(const QString& what);
     void onItemContextMenuRequested(const QPoint& point);
     void onClearRequested();
+    void onConfigurationChanged(int index);
 
+    void populateConfigurations();
+    void populateList();
     void setValue(QTreeWidgetItem* item, const QString& val);
     void reload(QTreeWidgetItem &item);
     void reload();
@@ -37,9 +41,10 @@ signals:
 
 private:
 
-    QPlainTextEdit* _listEdit{nullptr};
-    QTreeWidget* _listWidget{nullptr};
-    QAction* _clearAction{nullptr};
+    QPlainTextEdit* _listEdit{};
+    QTreeWidget* _listWidget{};
+    QComboBox* _confCombo{};
+    QAction* _clearAction{};
     ProjectDescription _project{};
     ConfigurationDescription _currentCfg{};
 };
