@@ -1,7 +1,5 @@
 #include <QStringList>
 
-#include <algorithm>
-
 class TokenizedString : public QStringList
 {
     constexpr static auto SEPARATOR = ';';
@@ -49,7 +47,7 @@ public:
         removeAll("");
 
         sort(Qt::CaseInsensitive);
-        erase(std::unique(begin(), end()), end());
+        removeDuplicates();
     }
 
     QString buildString(const char* prefix, const char* postfix) const

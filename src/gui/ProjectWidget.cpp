@@ -127,12 +127,12 @@ void ProjectWidget::onLoadInvoked()
 {
     /*auto path = QFileDialog::getOpenFileName(
         this, {}, {}, "Visual Studio project (*.vcxproj)");*/
-    QString path{"/home/jaskol/test.vcxproj"};
+    QString path{"/home/jaskol/src/test.vcxproj"};
     if (path.isNull())
         return;
 
     auto&& file = QFile{path};
-    _project = parseVcxproj(file);
+    _project = parseVcxproj(file, "/home/jaskol/src");
     _project.vcxprojPath = path;
     if (_project.configurations.size() > 0)
     {

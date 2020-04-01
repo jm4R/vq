@@ -34,6 +34,5 @@ struct ProjectDescription
     int compilerVersionMajor{};
     int compilerVersionMinor{};
 
-    ConfigurationDescription commonConfiguration;
     QVector<ConfigurationDescription> configurations;
 };

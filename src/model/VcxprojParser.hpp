@@ -1,6 +1,7 @@
 #pragma once
 
-class QIODevice;
 class ProjectDescription;
+class QIODevice;
+class QString;
 
-ProjectDescription parseVcxproj(QIODevice& device);
+ProjectDescription parseVcxproj(QIODevice& device, const QString& rootPath);
